@@ -181,6 +181,9 @@ namespace octomap_server {
     }
 
     OctomapServer::~OctomapServer() {
+        RCLCPP_INFO(this->get_logger(),
+                    "\033[34mNode shutdown <<< %s\033[0m", this->node_name_.c_str());
+        RCLCPP_INFO(this->get_logger(), "Input Octomap file provided: %s", m_saveWhenExit ? "True": "False")
         // Save octomap if needed
         if (m_saveWhenExit) {
             bool succeed = saveMap();
