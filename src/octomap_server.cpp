@@ -98,7 +98,7 @@ namespace octomap_server {
 
         m_inputOctFile = this->declare_parameter("input_octomap_file", m_inputOctFile);
         m_outputOctFile = this->declare_parameter("output_octomap_file", m_outputOctFile);
-        m_saveWhenExit = this->declare_parameter("save_octomap_when_exist", m_saveWhenExit);
+        m_saveWhenExit = this->declare_parameter("save_octomap_when_exit", m_saveWhenExit);
 
         if (m_filterGroundPlane &&
             (m_pointcloudMinZ > 0.0 || m_pointcloudMaxZ < 0.0)) {
@@ -183,9 +183,9 @@ namespace octomap_server {
     OctomapServer::~OctomapServer() {
         RCLCPP_INFO(this->get_logger(),
                     "\033[34mNode shutdown <<< %s\033[0m", this->node_name_.c_str());
-        RCLCPP_INFO(this->get_logger(), "Input Octomap file provided: %s", m_saveWhenExit ? "True": "False")
         // Save octomap if needed
         if (m_saveWhenExit) {
+            RCLCPP_INFO(this->get_logger(), "Saving octomap before exit....")
             bool succeed = saveMap();
             if (succeed)
                 RCLCPP_INFO(this->get_logger(), "Octomap successfully been saved when exits");
