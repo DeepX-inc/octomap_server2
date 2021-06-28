@@ -36,7 +36,7 @@ namespace octomap_server {
         m_incrementalUpdate(false),
         m_inputOctFile(""),
         m_outputOctFile(""),
-        m_saveWhenExist(false) {
+        m_saveWhenExit(false) {
 
         rclcpp::Clock::SharedPtr clock = std::make_shared<rclcpp::Clock>(RCL_SYSTEM_TIME);
         this->buffer_ = std::make_shared<tf2_ros::Buffer>(clock);
@@ -98,7 +98,7 @@ namespace octomap_server {
 
         m_inputOctFile = this->declare_parameter("input_octomap_file", m_inputOctFile);
         m_outputOctFile = this->declare_parameter("output_octomap_file", m_outputOctFile);
-        m_saveWhenExist = this->declare_parameter("save_octomap_when_exist", m_saveWhenExist);
+        m_saveWhenExit = this->declare_parameter("save_octomap_when_exist", m_saveWhenExist);
 
         if (m_filterGroundPlane &&
             (m_pointcloudMinZ > 0.0 || m_pointcloudMaxZ < 0.0)) {
@@ -182,8 +182,8 @@ namespace octomap_server {
 
     OctomapServer::~OctomapServer() {
         // Save octomap if needed
-        if (m_saveWhenExist) {
-            succeed = saveMap();
+        if (m_saveWhenExit) {
+            bool succeed = saveMap();
             if (succeed)
                 RCLCPP_INFO(this->get_logger(), "Octomap successfully been saved when exits");
             else
@@ -920,7 +920,7 @@ namespace octomap_server {
         bool succeed = saveMap();
         resp->success = succeed;
 
-        return succeed
+        return succeed;
     }
 
     bool OctomapServer::saveMap() {
