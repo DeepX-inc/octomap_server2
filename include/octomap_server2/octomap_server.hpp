@@ -229,6 +229,7 @@ namespace octomap_server {
         
         void adjustMapData(nav_msgs::msg::OccupancyGrid& map,
                            const nav_msgs::msg::MapMetaData& oldMapInfo) const;
+        bool saveMap();
         
     public:        
         explicit OctomapServer(
@@ -251,7 +252,6 @@ namespace octomap_server {
         bool saveMapSrv(
             const std::shared_ptr<std_srvs::srv::Trigger::Request>,
             std::shared_ptr<std_srvs::srv::Trigger::Response>);
-        bool saveMap();
 
         virtual void insertCloudCallback(
             const sensor_msgs::msg::PointCloud2::ConstSharedPtr &);
