@@ -185,7 +185,7 @@ namespace octomap_server {
                     "\033[34mNode shutdown <<< %s\033[0m", this->node_name_.c_str());
         // Save octomap if needed
         if (m_saveWhenExit) {
-            RCLCPP_INFO(this->get_logger(), "Saving octomap before exit....")
+            RCLCPP_INFO(this->get_logger(), "Saving octomap before exit....");
             bool succeed = saveMap();
             if (succeed)
                 RCLCPP_INFO(this->get_logger(), "Octomap successfully been saved when exits");
