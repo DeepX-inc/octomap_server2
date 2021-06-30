@@ -187,9 +187,9 @@ namespace octomap_server {
             RCLCPP_INFO(this->get_logger(), "Saving octomap before exit....");
             bool succeed = saveMap();
             if (succeed)
-                RCLCPP_INFO(this->get_logger(), "Octomap successfully been saved when exits");
+                RCLCPP_INFO(this->get_logger(), "Octomap has been successfully saved when exiting!");
             else
-                RCLCPP_ERROR(this->get_logger(), "Save Octomap failed when exits!");
+                RCLCPP_ERROR(this->get_logger(), "Octomap failed to save when exiting!");
         }
     }
 
