@@ -35,7 +35,8 @@ namespace octomap_server {
         m_compressMap(true),
         m_incrementalUpdate(false),
         m_inputOctFile(""),
-        m_outputOctFile("") {
+        m_outputOctFile(""),
+        m_saveWhenExit(false) {
 
         rclcpp::Clock::SharedPtr clock = std::make_shared<rclcpp::Clock>(RCL_SYSTEM_TIME);
         this->buffer_ = std::make_shared<tf2_ros::Buffer>(clock);
@@ -97,6 +98,7 @@ namespace octomap_server {
 
         m_inputOctFile = this->declare_parameter("input_octomap_file", m_inputOctFile);
         m_outputOctFile = this->declare_parameter("output_octomap_file", m_outputOctFile);
+        m_saveWhenExit = this->declare_parameter("save_octomap_when_exit", m_saveWhenExit);
 
         if (m_filterGroundPlane &&
             (m_pointcloudMinZ > 0.0 || m_pointcloudMaxZ < 0.0)) {
@@ -179,7 +181,16 @@ namespace octomap_server {
     }
 
     OctomapServer::~OctomapServer() {
-
+        RCLCPP_INFO(this->get_logger(), "\033[34mNode shutdown <<< OctomapServer\033[0m");
+        // Save octomap if needed
+        if (m_saveWhenExit) {
+            RCLCPP_INFO(this->get_logger(), "Saving octomap before exit....");
+            bool succeed = saveMap();
+            if (succeed)
+                RCLCPP_INFO(this->get_logger(), "Octomap has been successfully saved when exiting!");
+            else
+                RCLCPP_ERROR(this->get_logger(), "Octomap failed to save when exiting!");
+        }
     }
 
     void OctomapServer::onInit() {
@@ -907,11 +918,19 @@ namespace octomap_server {
         RCLCPP_INFO(this->get_logger(),
                     "Received save Octomap request");
 
+
+        bool succeed = saveMap();
+        resp->success = succeed;
+
+        return succeed;
+    }
+
+    bool OctomapServer::saveMap() {
+
         if (m_outputOctFile.length() <= 3) {
             RCLCPP_ERROR(this->get_logger(),
                          "Output file name %s not valid",
                          m_outputOctFile.c_str());
-            resp->success = false;
             return false;
         }
 
@@ -920,25 +939,21 @@ namespace octomap_server {
             if (!m_octree->writeBinary(m_outputOctFile)){
                 RCLCPP_ERROR(this->get_logger(),
                              "Error writing to file %s", m_outputOctFile.c_str());
-                resp->success = false;
                 return false;
             }
         } else if (suffix == ".ot"){ // write to full .ot file:
             if (!m_octree->write(m_outputOctFile)){
                 RCLCPP_ERROR(this->get_logger(),
                              "Error writing to file %s", m_outputOctFile.c_str());
-                resp->success = false;
                 return false;
             }
         } else{
             RCLCPP_ERROR(this->get_logger(),
                          "Octomap output file extension, must be either .bt or .ot");
-            resp->success = false;
             return false;
         }
 
         RCLCPP_INFO(this->get_logger(), "Save Octomap succeed");
-        resp->success = true;
         return true;
     }
 

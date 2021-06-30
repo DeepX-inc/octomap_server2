@@ -28,6 +28,7 @@ def generate_launch_description():
               'incremental_2D_projection': False,
               'input_octomap_file': '',
               'output_octomap_file': '',
+              'save_octomap_when_exit': False,
               'sensor_model/max_range': -1.0,
               'sensor_model/hit': 0.7,
               'sensor_model/miss': 0.4,

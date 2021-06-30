@@ -152,9 +152,10 @@ namespace octomap_server {
         unsigned m_multires2DScale;
         bool m_projectCompleteMap;
 
-        // input/output octomap file
+        // input/output octomap file, also option for save when exit
         std::string m_inputOctFile;
         std::string m_outputOctFile;
+        bool m_saveWhenExit;
         
         inline static void updateMinKey(const octomap::OcTreeKey& in,
                                         octomap::OcTreeKey& min) {
@@ -229,6 +230,7 @@ namespace octomap_server {
         
         void adjustMapData(nav_msgs::msg::OccupancyGrid& map,
                            const nav_msgs::msg::MapMetaData& oldMapInfo) const;
+        bool saveMap();
         
     public:        
         explicit OctomapServer(
