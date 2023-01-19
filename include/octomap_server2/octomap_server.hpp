@@ -17,7 +17,6 @@
 
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <std_srvs/srv/empty.hpp>
-#include <std_srvs/srv/trigger.hpp>
 
 #include <pcl/point_types.h>
 #include <pcl/conversions.h>
@@ -72,14 +71,14 @@ namespace ph = std::placeholders;
 
 namespace octomap_server {
     class OctomapServer: public rclcpp::Node {
-
+        
     protected:
 
         std::shared_ptr<message_filters::Subscriber<
                             sensor_msgs::msg::PointCloud2>> m_pointCloudSub;
         std::shared_ptr<tf2_ros::MessageFilter<
                             sensor_msgs::msg::PointCloud2>> m_tfPointCloudSub;
-
+        
         static std_msgs::msg::ColorRGBA heightMapColor(double h);
 
         rclcpp::Publisher<sensor_msgs::msg::PointCloud2
@@ -94,31 +93,25 @@ namespace octomap_server {
                           >::SharedPtr m_fullMapPub;
         rclcpp::Publisher<nav_msgs::msg::OccupancyGrid
                           >::SharedPtr m_mapPub;
-
+        
         rclcpp::Service<OctomapSrv>::SharedPtr m_octomapBinaryService;
         rclcpp::Service<OctomapSrv>::SharedPtr m_octomapFullService;
         rclcpp::Service<BBXSrv>::SharedPtr m_clearBBXService;
         rclcpp::Service<std_srvs::srv::Empty>::SharedPtr m_resetService;
-        rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr m_saveMapService;
 
         std::shared_ptr<tf2_ros::Buffer> buffer_;
         std::shared_ptr<tf2_ros::TransformListener> m_tfListener;
 
         std::shared_ptr<OcTreeT> m_octree;
-
+        
         octomap::KeyRay m_keyRay;  // temp storage for ray casting
         octomap::OcTreeKey m_updateBBXMin;
         octomap::OcTreeKey m_updateBBXMax;
 
         double m_maxRange;
-
         std::string m_worldFrameId; // the map frame
         std::string m_baseFrameId; // base of the robot for ground plane filtering
-
         bool m_useHeightMap;
-        bool m_useColoredMap;
-
-        // octree properties
         std_msgs::msg::ColorRGBA m_color;
         std_msgs::msg::ColorRGBA m_colorFree;
         double m_colorFactor;
@@ -151,11 +144,7 @@ namespace octomap_server {
         octomap::OcTreeKey m_paddedMinKey;
         unsigned m_multires2DScale;
         bool m_projectCompleteMap;
-
-        // input/output octomap file, also option for save when exit
-        std::string m_inputOctFile;
-        std::string m_outputOctFile;
-        bool m_saveWhenExit;
+        bool m_useColoredMap;
         
         inline static void updateMinKey(const octomap::OcTreeKey& in,
                                         octomap::OcTreeKey& min) {
@@ -230,7 +219,6 @@ namespace octomap_server {
         
         void adjustMapData(nav_msgs::msg::OccupancyGrid& map,
                            const nav_msgs::msg::MapMetaData& oldMapInfo) const;
-        bool saveMap();
         
     public:        
         explicit OctomapServer(
@@ -250,9 +238,6 @@ namespace octomap_server {
         bool resetSrv(
             const std::shared_ptr<std_srvs::srv::Empty::Request>,
             std::shared_ptr<std_srvs::srv::Empty::Response>);
-        bool saveMapSrv(
-            const std::shared_ptr<std_srvs::srv::Trigger::Request>,
-            std::shared_ptr<std_srvs::srv::Trigger::Response>);
 
         virtual void insertCloudCallback(
             const sensor_msgs::msg::PointCloud2::ConstSharedPtr &);
