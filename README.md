@@ -1,5 +1,3 @@
-Perception Section: Customized Octomap Server2
-
 <div align="center">
   <h1>OctoMap Server2</h1>
   <h3>Implementation of octomap for ROS2.0 </h3>
