@@ -186,6 +186,9 @@ namespace octomap_server {
         this->m_fmarkerPub = this->create_publisher<
             visualization_msgs::msg::MarkerArray>(
                 "free_cells_vis_array", qos);
+        this->m_heartbeatPub = this->create_publisher<
+            std_msgs::msg::Header>(
+                "~/heartbeat", qos);
     }
 
     void OctomapServer::subscribe() {
@@ -279,7 +282,11 @@ namespace octomap_server {
     void OctomapServer::insertCloudCallback(
         const sensor_msgs::msg::PointCloud2::ConstSharedPtr &cloud){
         auto start = std::chrono::steady_clock::now();
-        
+        // Publish the heartbeat
+        auto heartbeat_msg = std_msgs::msg::Header();
+        heartbeat_msg.stamp = this->get_clock()->now();
+        this->m_heartbeatPub->publish(heartbeat_msg);
+
         //
         // ground filtering in base frame
         //
