@@ -38,7 +38,7 @@
 #include <tf2_ros/create_timer_ros.h>
 #include <tf2_ros/message_filter.h>
 
-#include <conversions.h>
+#include <octomap_msgs/conversions.h>
 #include <octomap_msgs/msg/octomap.hpp>
 #include <octomap_msgs/srv/get_octomap.hpp>
 #include <octomap_msgs/srv/bounding_box_query.hpp>
