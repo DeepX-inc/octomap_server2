@@ -384,7 +384,7 @@ namespace octomap_server {
 
         auto end = std::chrono::steady_clock::now();
         std::chrono::duration<double> elapsed_seconds = end - start;
-        RCLCPP_INFO(this->get_logger(), "Time lapse %f", elapsed_seconds.count());
+        RCLCPP_DEBUG(this->get_logger(), "Time lapse %f", elapsed_seconds.count());
         
         publishAll(cloud->header.stamp);
     }
@@ -478,7 +478,7 @@ namespace octomap_server {
 
         auto end = std::chrono::steady_clock::now();
         std::chrono::duration<double> elapsed_seconds = end - start;
-        RCLCPP_INFO(this->get_logger(), "Time lapse[insert] %f", elapsed_seconds.count());
+        RCLCPP_DEBUG(this->get_logger(), "Time lapse[insert] %f", elapsed_seconds.count());
         
         // mark free cells only if not seen occupied in this cloud
         for(auto it = free_cells.begin(), end=free_cells.end();
