@@ -93,6 +93,8 @@ namespace octomap_server {
                           >::SharedPtr m_fullMapPub;
         rclcpp::Publisher<nav_msgs::msg::OccupancyGrid
                           >::SharedPtr m_mapPub;
+        rclcpp::Publisher<std_msgs::msg::Header
+                          >::SharedPtr m_heartbeatPub;
         
         rclcpp::Service<OctomapSrv>::SharedPtr m_octomapBinaryService;
         rclcpp::Service<OctomapSrv>::SharedPtr m_octomapFullService;
