@@ -5,7 +5,9 @@ namespace octomap_server {
     OctomapServer::OctomapServer(
         const rclcpp::NodeOptions &options,
         const std::string node_name):
-        Node(node_name, options),
+        Node(
+            node_name,
+            rclcpp::NodeOptions(options).start_parameter_services(false)),
         m_octree(NULL),
         m_maxRange(20),
         m_worldFrameId("/map"),
