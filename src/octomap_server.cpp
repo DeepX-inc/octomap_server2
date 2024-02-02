@@ -33,8 +33,7 @@ namespace octomap_server {
         m_groundFilterAngle(0.15),
         m_groundFilterPlaneDistance(0.07),
         m_compressMap(true),
-        m_incrementalUpdate(false),
-        heartbeat_period_ms_(std::chrono::milliseconds(100)) {
+        m_incrementalUpdate(false) {
 
         rclcpp::Clock::SharedPtr clock = std::make_shared<rclcpp::Clock>(RCL_SYSTEM_TIME);
         this->buffer_ = std::make_shared<tf2_ros::Buffer>(clock);
@@ -43,7 +42,7 @@ namespace octomap_server {
             *buffer_, this, false);
         
         this->heartbeat_period_ms_ = std::chrono::milliseconds(
-            this->get_parameter("heartbeat_period_ms").as_int());
+            this->declare_parameter("heartbeat_period_ms", 100));
         m_worldFrameId = this->declare_parameter("frame_id", m_worldFrameId);
         m_baseFrameId = this->declare_parameter("base_frame_id", m_baseFrameId);
         m_useHeightMap = this->declare_parameter("height_map", m_useHeightMap);
