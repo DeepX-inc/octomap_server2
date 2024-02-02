@@ -197,7 +197,7 @@ namespace octomap_server {
 
         this->heartbeat_timer_ = this->create_wall_timer(
             this->heartbeat_period_ms_,
-            [this](){this->heartbeat_timer_callback()});
+            [this](){this->heartbeat_timer_callback();});
         this->m_pointCloudSub = std::make_shared<
             message_filters::Subscriber<sensor_msgs::msg::PointCloud2>>(
                 this, "cloud_in");
