@@ -1351,7 +1351,7 @@ namespace octomap_server {
         return color;
     }
 
-    OctomapServer::heartbeat_timer_callback()
+    void OctomapServer::heartbeat_timer_callback()
     {
         // Publish the heartbeat
         auto heartbeat_msg = std_msgs::msg::Header();
