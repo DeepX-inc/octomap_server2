@@ -95,7 +95,8 @@ namespace octomap_server {
                           >::SharedPtr m_mapPub;
         rclcpp::Publisher<std_msgs::msg::Header
                           >::SharedPtr m_heartbeatPub;
-        
+        rclcpp::TimerBase::SharedPtr heartbeat_timer_;
+
         rclcpp::Service<OctomapSrv>::SharedPtr m_octomapBinaryService;
         rclcpp::Service<OctomapSrv>::SharedPtr m_octomapFullService;
         rclcpp::Service<BBXSrv>::SharedPtr m_clearBBXService;
@@ -137,6 +138,7 @@ namespace octomap_server {
         double m_groundFilterAngle;
         double m_groundFilterPlaneDistance;
         bool m_compressMap;
+        std::chrono::milliseconds heartbeat_period_ms_;
 
         // downprojected 2D map:
         bool m_incrementalUpdate;
@@ -222,6 +224,8 @@ namespace octomap_server {
         void adjustMapData(nav_msgs::msg::OccupancyGrid& map,
                            const nav_msgs::msg::MapMetaData& oldMapInfo) const;
         
+        void heartbeat_timer_callback();
+
     public:        
         explicit OctomapServer(
             const rclcpp::NodeOptions &,

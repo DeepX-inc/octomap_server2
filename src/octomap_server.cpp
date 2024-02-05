@@ -43,6 +43,8 @@ namespace octomap_server {
         this->m_tfListener = std::make_shared<tf2_ros::TransformListener>(
             *buffer_, this, false);
         
+        this->heartbeat_period_ms_ = std::chrono::milliseconds(
+            this->declare_parameter("heartbeat_period_ms", 100));
         m_worldFrameId = this->declare_parameter("frame_id", m_worldFrameId);
         m_baseFrameId = this->declare_parameter("base_frame_id", m_baseFrameId);
         m_useHeightMap = this->declare_parameter("height_map", m_useHeightMap);
@@ -194,6 +196,10 @@ namespace octomap_server {
     }
 
     void OctomapServer::subscribe() {
+
+        this->heartbeat_timer_ = this->create_wall_timer(
+            this->heartbeat_period_ms_,
+            [this](){this->heartbeat_timer_callback();});
         this->m_pointCloudSub = std::make_shared<
             message_filters::Subscriber<sensor_msgs::msg::PointCloud2>>(
                 this, "cloud_in");
@@ -284,10 +290,6 @@ namespace octomap_server {
     void OctomapServer::insertCloudCallback(
         const sensor_msgs::msg::PointCloud2::ConstSharedPtr &cloud){
         auto start = std::chrono::steady_clock::now();
-        // Publish the heartbeat
-        auto heartbeat_msg = std_msgs::msg::Header();
-        heartbeat_msg.stamp = this->get_clock()->now();
-        this->m_heartbeatPub->publish(heartbeat_msg);
 
         //
         // ground filtering in base frame
@@ -1348,6 +1350,14 @@ namespace octomap_server {
             break;
         }
         return color;
+    }
+
+    void OctomapServer::heartbeat_timer_callback()
+    {
+        // Publish the heartbeat
+        auto heartbeat_msg = std_msgs::msg::Header();
+        heartbeat_msg.stamp = this->get_clock()->now();
+        this->m_heartbeatPub->publish(heartbeat_msg);
     }
 }
 
