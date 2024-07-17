@@ -95,6 +95,10 @@ namespace octomap_server {
                           >::SharedPtr m_mapPub;
         rclcpp::Publisher<std_msgs::msg::Header
                           >::SharedPtr m_heartbeatPub;
+        rclcpp::Publisher<std_msgs::msg::Header
+                          >::SharedPtr m_cloudInHealthPub;
+        rclcpp::Publisher<std_msgs::msg::Header
+                          >::SharedPtr m_cloudOutHealthPub;
         rclcpp::TimerBase::SharedPtr heartbeat_timer_;
 
         rclcpp::Service<OctomapSrv>::SharedPtr m_octomapBinaryService;
@@ -138,6 +142,7 @@ namespace octomap_server {
         double m_groundFilterAngle;
         double m_groundFilterPlaneDistance;
         bool m_compressMap;
+        bool m_publishHealthMetrics{false};
         std::chrono::milliseconds heartbeat_period_ms_;
 
         // downprojected 2D map:
