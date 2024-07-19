@@ -195,10 +195,10 @@ namespace octomap_server {
                 "free_cells_vis_array", qos);
         this->m_heartbeatPub = this->create_publisher<
             std_msgs::msg::Header>("~/heartbeat", qos);
-        this->m_cloudInHealthPub = this->create_publisher<
-            std_msgs::msg::Header>("~/health/cloud_in", qos);
-        this->m_cloudOutHealthPub = this->create_publisher<
-            std_msgs::msg::Header>("~/health/cloud_out", qos);
+        this->m_cloudReceivedHealthPub = this->create_publisher<
+            std_msgs::msg::Header>("~/health/cloud_received", qos);
+        this->m_cloudPublishedHealthPub = this->create_publisher<
+            std_msgs::msg::Header>("~/health/cloud_published", qos);
     }
 
     void OctomapServer::subscribe() {
@@ -301,7 +301,7 @@ namespace octomap_server {
         if (m_publishHealthMetrics) {
             std_msgs::msg::Header health;
             health.stamp = this->get_clock()->now();
-            this->m_cloudInHealthPub->publish(health);
+            this->m_cloudReceivedHealthPub->publish(health);
         }
 
         //
@@ -794,7 +794,7 @@ namespace octomap_server {
                 // any unexpected delay in this function.
                 std_msgs::msg::Header health;
                 health.stamp = this->get_clock()->now();
-                m_cloudOutHealthPub->publish(health);
+                m_cloudPublishedHealthPub->publish(health);
             }
         }
 

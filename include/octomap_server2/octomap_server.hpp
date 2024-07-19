@@ -96,9 +96,9 @@ namespace octomap_server {
         rclcpp::Publisher<std_msgs::msg::Header
                           >::SharedPtr m_heartbeatPub;
         rclcpp::Publisher<std_msgs::msg::Header
-                          >::SharedPtr m_cloudInHealthPub;
+                          >::SharedPtr m_cloudReceivedHealthPub;
         rclcpp::Publisher<std_msgs::msg::Header
-                          >::SharedPtr m_cloudOutHealthPub;
+                          >::SharedPtr m_cloudPublishedHealthPub;
         rclcpp::TimerBase::SharedPtr heartbeat_timer_;
 
         rclcpp::Service<OctomapSrv>::SharedPtr m_octomapBinaryService;
