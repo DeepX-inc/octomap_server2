@@ -157,6 +157,9 @@ namespace octomap_server {
         m_publishFreeSpace = this->declare_parameter(
             "publish_free_space", m_publishFreeSpace);
 
+        m_publishHealthMetrics = this->declare_parameter(
+            "publish_health_metrics", m_publishHealthMetrics);
+
         RCLCPP_INFO(this->get_logger(),
             "Publishing non-latched (topics are only"
             " prepared as needed, will only be re-published on map change");
@@ -191,8 +194,11 @@ namespace octomap_server {
             visualization_msgs::msg::MarkerArray>(
                 "free_cells_vis_array", qos);
         this->m_heartbeatPub = this->create_publisher<
-            std_msgs::msg::Header>(
-                "~/heartbeat", qos);
+            std_msgs::msg::Header>("~/heartbeat", qos);
+        this->m_cloudReceivedHealthPub = this->create_publisher<
+            std_msgs::msg::Header>("~/health/cloud_received", qos);
+        this->m_cloudPublishedHealthPub = this->create_publisher<
+            std_msgs::msg::Header>("~/health/cloud_published", qos);
     }
 
     void OctomapServer::subscribe() {
@@ -290,6 +296,13 @@ namespace octomap_server {
     void OctomapServer::insertCloudCallback(
         const sensor_msgs::msg::PointCloud2::ConstSharedPtr &cloud){
         auto start = std::chrono::steady_clock::now();
+
+        // Use ROS Time instead of Wall Time.
+        if (m_publishHealthMetrics) {
+            std_msgs::msg::Header health;
+            health.stamp = this->get_clock()->now();
+            this->m_cloudReceivedHealthPub->publish(health);
+        }
 
         //
         // ground filtering in base frame
@@ -775,6 +788,14 @@ namespace octomap_server {
             cloud.header.frame_id = m_worldFrameId;
             cloud.header.stamp = rostime;
             m_pointCloudPub->publish(cloud);
+
+            if (m_publishHealthMetrics) {
+                // Use the latest 'now' in case there is
+                // any unexpected delay in this function.
+                std_msgs::msg::Header health;
+                health.stamp = this->get_clock()->now();
+                m_cloudPublishedHealthPub->publish(health);
+            }
         }
 
         if (publishBinaryMap) {
