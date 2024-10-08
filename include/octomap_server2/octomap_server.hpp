@@ -48,6 +48,9 @@
 
 #include <octomap_server2/transforms.hpp>
 #include <octomap_server2/conversions.h>
+#include <imgui_debug/debug_gui.hpp>
+#include <imgui.h>
+#include <implot.h>
 
 #ifdef COLOR_OCTOMAP_SERVER
 #include <octomap/ColorOcTree.h>
@@ -149,7 +152,13 @@ namespace octomap_server {
         unsigned m_multires2DScale;
         bool m_projectCompleteMap;
         bool m_useColoredMap;
-        
+
+        // debug tooling
+        std::unique_ptr<imgui_debug::DebugGUI> debug_gui_;
+        void DebugGUIRenderCallback();
+        rclcpp::TimerBase::SharedPtr gui_timer_;
+
+
         inline static void updateMinKey(const octomap::OcTreeKey& in,
                                         octomap::OcTreeKey& min) {
             for (unsigned i = 0; i < 3; ++i) {

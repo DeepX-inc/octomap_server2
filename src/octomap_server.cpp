@@ -163,6 +163,8 @@ namespace octomap_server {
 
         RCLCPP_INFO(this->get_logger(), "Frame Id %s", m_worldFrameId.c_str());
         RCLCPP_INFO(this->get_logger(), "Resolution %.2f", m_res);
+
+        debug_gui_ = std::make_unique<imgui_debug::DebugGUI>();
         
         this->onInit();
     }
@@ -193,6 +195,24 @@ namespace octomap_server {
         this->m_heartbeatPub = this->create_publisher<
             std_msgs::msg::Header>(
                 "~/heartbeat", qos);
+
+        // Debug GUI
+        if (debug_gui_->Initialize()) {
+            // Configure the GUI to calculate and plot the debug graphics defined in this node 
+            // This defines the plot code to be executed on debug_gui_->Render() calls
+            debug_gui_->SetRenderCallback(std::bind(&OctomapServer::DebugGUIRenderCallback, this));
+        
+            // Create a timer in ROS to actually trigger the GUI rendering     
+            // debug_gui_->Render() can also be triggered directly in a separate ROS callback
+            gui_timer_ = this->create_wall_timer(
+            std::chrono::milliseconds(16),
+            std::bind(&imgui_debug::DebugGUI::Render, debug_gui_.get())
+            );
+            
+        } else {
+            RCLCPP_WARN(this->get_logger(), "Failed to initialize DebugGUI");
+        }
+        
     }
 
     void OctomapServer::subscribe() {
@@ -232,6 +252,65 @@ namespace octomap_server {
             "reset", std::bind(&OctomapServer::resetSrv, this, ph::_1, ph::_2));
 
         RCLCPP_INFO(this->get_logger(), "Setup completed!");
+    }
+
+    void OctomapServer::DebugGUIRenderCallback()
+    {
+    // Scatter plots for X,Z and Y,Z values of the latest pointcloud
+    if (!m_octree) {
+        ImGui::Text("No octree available.");
+        return;
+    }
+
+    
+    double minX, minY, minZ, maxX, maxY, maxZ;
+    m_octree->getMetricMin(minX, minY, minZ);
+    m_octree->getMetricMax(maxX, maxY, maxZ);
+
+    // Start a new horizontal layout
+    ImGui::BeginGroup();
+
+    // Add the colorbar to the left
+    ImPlot::PushColormap(ImPlotColormap_Plasma);
+    ImPlot::ColormapScale("Z Height", minZ, maxZ, ImVec2(60, 225));
+    ImGui::SameLine();
+
+    // Main plot
+    if (ImPlot::BeginPlot("X-Y Plot Colored by Z Height", ImVec2(-1, 250))) {
+        // Create a 2D vector to store Z values for the heatmap
+        int num_x_bins = 100;
+        int num_y_bins = 100;
+        std::vector<float> z_values(num_x_bins * num_y_bins, 0.0f);
+
+        // Populate the z_values 2D vector
+        // TODO based on octmap data
+
+        // Create the heatmap
+        ImPlot::PlotHeatmap("Z Height Heatmap", z_values.data(), num_x_bins, num_y_bins, 0, 0, nullptr, ImVec2(0, 0), ImVec2(10, 10));
+
+        ImPlot::PopColormap();
+
+        ImPlot::EndPlot();
+    }
+    // End the horizontal layout
+    
+    ImGui::EndGroup();
+
+        // Display the ranges
+    ImGui::Text("X range: %.2f to %.2f", minX, maxX);
+    ImGui::Text("Y range: %.2f to %.2f", minY, maxY);
+    ImGui::Text("Z range: %.2f to %.2f", minZ, maxZ);
+
+
+    ImGui::Text(
+        "Application average %.3f ms/frame (%.1f FPS)",
+        1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+
+    // Display all parameters of the node
+    debug_gui_->RenderParameters(this);
+
+
+
     }
 
     bool OctomapServer::openFile(const std::string &filename){

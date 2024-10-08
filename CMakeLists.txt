@@ -35,12 +35,16 @@ find_package(tf2_ros REQUIRED)
 find_package(tf2_msgs REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(rclcpp_components REQUIRED)
+find_package(imgui_debug REQUIRED)
 message("${octomap_msgs_INCLUDE_DIRS}")
 
 link_directories(${PCL_LIBRARY_DIRS})
 include_directories(${PCL_INCLUDE_DIRS})
 include_directories(${octomap_msgs_INCLUDE_DIRS})
 include_directories(include)
+
+#TODO: Fix this nonsense - the problem is in the imgui_debug CMAKE file 
+include_directories(/root/deepx_ws/install/imgui_debug/include)
 
 add_library(octomap_server2 SHARED
   src/octomap_server.cpp
@@ -68,7 +72,11 @@ ament_target_dependencies(octomap_server2
   rclcpp_components
   )
 
-target_link_libraries(octomap_server2 ${PCL_LIBRARIES} ${OCTOMAP_LIBRARIES})
+target_link_libraries(octomap_server2 
+  ${PCL_LIBRARIES} 
+  ${OCTOMAP_LIBRARIES} 
+  /root/deepx_ws/install/imgui_debug/lib/libimgui_debug.so
+)
 
 rclcpp_components_register_node(octomap_server2
   PLUGIN "octomap_server::OctomapServer"
