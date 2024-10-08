@@ -30,3 +30,7 @@ Launch the node with appropriate input on topic `cloud_in`
 ```bash
 $ ros2 launch octomap_server2 octomap_server_launch.py
 ```
+
+## Env Representation Branch
+For details on how to run and test these prototype features, see:
+https://github.com/DeepX-inc/prj_faro/blob/experimental/env_representation/src/imgui_debug/README.md .
