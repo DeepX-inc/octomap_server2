@@ -22,7 +22,10 @@ $ vcs import . < deps.repos
 #### Building
 Use colcon to build the workspace
 ```bash
-$ colcon build --symlink-install --packages-select octomap_msgs octomap_server2
+# required by imgui_debug
+apt-get install libglfw3-dev libglew-dev
+
+colcon build --symlink-install --packages-select octomap_msgs octomap_server2
 ```
 
 #### Running
