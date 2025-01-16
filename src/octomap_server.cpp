@@ -2,6 +2,91 @@
 #include <octomap_server2/octomap_server.hpp>
 
 namespace octomap_server {
+    void SlidingWindowOcTreeNode::addPointCount(int count) {
+        pointCounts.push_back(count);
+        if (pointCounts.size() > slidingWindowSize) {
+            pointCounts.pop_front();
+        }
+    }
+
+    const std::deque<int>& SlidingWindowOcTreeNode::getPointCounts() const {
+        return pointCounts;
+    }
+
+    std::ostream& SlidingWindowOcTreeNode::writeData(std::ostream& s) const {
+        octomap::OcTreeNode::writeData(s);
+        size_t dequeSize = pointCounts.size();
+        s.write(reinterpret_cast<const char*>(&dequeSize), sizeof(dequeSize));
+        for (const int& count : pointCounts) {
+            s.write(reinterpret_cast<const char*>(&count), sizeof(count));
+        }
+        return s;
+    }
+
+    std::istream& SlidingWindowOcTreeNode::readData(std::istream& s) {
+        octomap::OcTreeNode::readData(s);
+        size_t dequeSize;
+        s.read(reinterpret_cast<char*>(&dequeSize), sizeof(dequeSize));
+        pointCounts.resize(dequeSize);
+        for (size_t i = 0; i < dequeSize; ++i) {
+            s.read(reinterpret_cast<char*>(&pointCounts[i]), sizeof(pointCounts[i]));
+        }
+        return s;
+    }
+
+    SlidingWindowOcTree::SlidingWindowOcTree(double in_resolution)
+    : OccupancyOcTreeBase<SlidingWindowOcTreeNode>(in_resolution) {
+        slidingWindowOcTreeMemberInit.ensureLinking();
+    }
+
+    void SlidingWindowOcTree::updateNodeWithPointCount(const octomap::OcTreeKey& key, int count) {
+        SlidingWindowOcTreeNode* node = search(key);
+        if (node) {
+            node->addPointCount(count);
+        } else {
+            node = updateNode(key, count > 0);
+            node->addPointCount(count);
+        }
+    }
+
+    bool SlidingWindowOcTree::pruneNode(SlidingWindowOcTreeNode* node) {
+        if (!isNodeCollapsible(node)) {
+            return false;
+        }
+
+        // Aggregate values and prune
+        node->copyData(*getNodeChild(node, 0));
+        for (unsigned int i = 0; i < 8; ++i) {
+            deleteNodeChild(node, i);
+        }
+        delete[] node->children;
+        node->children = nullptr;
+
+        return true;
+    }
+
+    bool SlidingWindowOcTree::isNodeCollapsible(const SlidingWindowOcTreeNode* node) const {
+        if (!nodeChildExists(node, 0)) {
+            return false;
+        }
+
+        const SlidingWindowOcTreeNode* firstChild = getNodeChild(node, 0);
+        if (nodeHasChildren(firstChild)) {
+            return false;
+        }
+
+        for (unsigned int i = 1; i < 8; ++i) {
+            const SlidingWindowOcTreeNode* child = getNodeChild(node, i);
+            if (!nodeChildExists(node, i) || nodeHasChildren(child) || !(child->getValue() == firstChild->getValue())) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    SlidingWindowOcTree::StaticMemberInitializer SlidingWindowOcTree::slidingWindowOcTreeMemberInit;
+
     OctomapServer::OctomapServer(
         const rclcpp::NodeOptions &options,
         const std::string node_name):
@@ -127,7 +212,7 @@ namespace octomap_server {
         }
 
         // initialize octomap object & params
-        m_octree = std::make_shared<OcTreeT>(m_res);
+        m_octree = std::make_shared<SlidingWindowOcTree>(m_res);
         m_octree->setProbHit(probHit);
         m_octree->setProbMiss(probMiss);
         m_octree->setClampingThresMin(thresMin);
@@ -249,8 +334,8 @@ namespace octomap_server {
                 return false;
             }
 
-            OcTreeT *octree = dynamic_cast<OcTreeT*>(tree);
-            m_octree = std::shared_ptr<OcTreeT>(octree);
+            SlidingWindowOcTree *octree = dynamic_cast<SlidingWindowOcTree*>(tree);
+            m_octree = std::shared_ptr<SlidingWindowOcTree>(octree);
             
             if (!m_octree) {
                 std::string msg = "Could not read OcTree in file";
@@ -389,7 +474,8 @@ namespace octomap_server {
             pc_ground.header = pc.header;
             pc_nonground.header = pc.header;
         }
-        
+        // num_of_frames++;
+
         insertScan(sensorToWorldTf.transform.translation,
                    pc_ground, pc_nonground);
 
@@ -419,6 +505,7 @@ namespace octomap_server {
         
         // instead of direct scan insertion, compute update to filter ground:
         octomap::KeySet free_cells, occupied_cells;
+        std::unordered_map<octomap::OcTreeKey, int, octomap::OcTreeKey::KeyHash> voxelPointCounts;
         // insert ground points only as free:
         for (auto it = ground.begin(); it != ground.end(); ++it) {
             octomap::point3d point(it->x, it->y, it->z);
@@ -458,6 +545,7 @@ namespace octomap_server {
                 octomap::OcTreeKey key;
                 if (m_octree->coordToKeyChecked(point, key)) {
                     occupied_cells.insert(key);
+                    voxelPointCounts[key]++;
 
                     updateMinKey(key, m_updateBBXMin);
                     updateMaxKey(key, m_updateBBXMax);
@@ -490,12 +578,18 @@ namespace octomap_server {
         auto end = std::chrono::steady_clock::now();
         std::chrono::duration<double> elapsed_seconds = end - start;
         RCLCPP_DEBUG(this->get_logger(), "Time lapse[insert] %f", elapsed_seconds.count());
-        
+
+        // Update the octree with accumulated point counts
+        for (const auto& [key, count] : voxelPointCounts) {
+            dynamic_cast<SlidingWindowOcTree*>(m_octree.get())->updateNodeWithPointCount(key, count);
+        }
+
         // mark free cells only if not seen occupied in this cloud
         for(auto it = free_cells.begin(), end=free_cells.end();
             it!= end; ++it){
             if (occupied_cells.find(*it) == occupied_cells.end()){
                 m_octree->updateNode(*it, false);
+                dynamic_cast<SlidingWindowOcTree*>(m_octree.get())->updateNodeWithPointCount(*it, 0);
             }
         }
 
@@ -504,6 +598,10 @@ namespace octomap_server {
                  end=occupied_cells.end(); it!= end; it++) {
             m_octree->updateNode(*it, true);
         }
+
+        // if (num_of_frames == 150) {
+        //     m_octree->writeSlidingWindowDataToFile("/root/deepx_ws/src/prj_faro/src/swc/perception/voxel_sliding_window.txt");
+        // }
 
         // TODO: eval lazy+updateInner vs. proper insertion
         // non-lazy by default (updateInnerOccupancy() too slow for large maps)
@@ -1189,35 +1287,35 @@ namespace octomap_server {
     }
 
     void OctomapServer::handleOccupiedNode(
-        const OcTreeT::iterator& it){
+        const SlidingWindowOcTree::iterator& it){
         if (m_publish2DMap && m_projectCompleteMap){
             update2DMap(it, true);
         }
     }
 
     void OctomapServer::handleFreeNode(
-        const OcTreeT::iterator& it){
+        const SlidingWindowOcTree::iterator& it){
         if (m_publish2DMap && m_projectCompleteMap){
             update2DMap(it, false);
         }
     }
 
     void OctomapServer::handleOccupiedNodeInBBX(
-        const OcTreeT::iterator& it){
+        const SlidingWindowOcTree::iterator& it){
         if (m_publish2DMap && !m_projectCompleteMap){
             update2DMap(it, true);
         }
     }
 
     void OctomapServer::handleFreeNodeInBBX(
-        const OcTreeT::iterator& it){
+        const SlidingWindowOcTree::iterator& it){
         if (m_publish2DMap && !m_projectCompleteMap){
             update2DMap(it, false);
         }
     }
 
     void OctomapServer::update2DMap(
-        const OcTreeT::iterator& it, bool occupied) {
+        const SlidingWindowOcTree::iterator& it, bool occupied) {
         if (it.getDepth() == m_maxTreeDepth){
             auto idx = mapIdx(it.getKey());
             if (occupied) {

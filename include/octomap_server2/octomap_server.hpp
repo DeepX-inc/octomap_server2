@@ -49,6 +49,10 @@
 #include <octomap_server2/transforms.hpp>
 #include <octomap_server2/conversions.h>
 
+#include <deque>
+#include <octomap/OcTreeNode.h>
+#include <octomap/OccupancyOcTreeBase.h>
+
 #ifdef COLOR_OCTOMAP_SERVER
 #include <octomap/ColorOcTree.h>
 #endif
@@ -66,10 +70,119 @@ using OcTreeT = octomap::OcTree;
 using OctomapSrv =  octomap_msgs::srv::GetOctomap;
 using BBXSrv =  octomap_msgs::srv::BoundingBoxQuery;
 
-
 namespace ph = std::placeholders;
 
 namespace octomap_server {
+    class SlidingWindowOcTree;
+
+    class SlidingWindowOcTreeNode : public octomap::OcTreeNode {
+    public:
+        friend class SlidingWindowOcTree;
+
+        SlidingWindowOcTreeNode() : slidingWindowSize(30) {
+            pointCounts.resize(slidingWindowSize, 0);
+        }
+
+        SlidingWindowOcTreeNode(const SlidingWindowOcTreeNode& rhs)
+            : octomap::OcTreeNode(rhs), slidingWindowSize(rhs.slidingWindowSize), pointCounts(rhs.pointCounts) {}
+
+        bool operator==(const SlidingWindowOcTreeNode& rhs) const {
+            return (rhs.value == value && rhs.pointCounts == pointCounts);
+        }
+
+        void copyData(const SlidingWindowOcTreeNode& from) {
+            octomap::OcTreeNode::copyData(from);
+            this->pointCounts = from.getPointCounts();
+        }
+
+        void setSlidingWindowSize(size_t size) {
+            slidingWindowSize = size;
+            pointCounts.resize(slidingWindowSize, 0);
+            while (pointCounts.size() > slidingWindowSize) {
+                pointCounts.pop_front();
+            }
+        }
+
+        void addPointCount(int count);
+        const std::deque<int>& getPointCounts() const;
+
+        // Serialization
+        std::ostream& writeData(std::ostream& s) const;
+        std::istream& readData(std::istream& s);
+
+    protected:
+        size_t slidingWindowSize;
+        std::deque<int> pointCounts;
+    };
+
+    class SlidingWindowOcTree : public octomap::OccupancyOcTreeBase<SlidingWindowOcTreeNode> {
+    public:
+        explicit SlidingWindowOcTree(double resolution);
+
+        SlidingWindowOcTree* create() const {
+            return new SlidingWindowOcTree(this->resolution);
+        }
+
+        std::string getTreeType() const {
+            return "SlidingWindowOcTree";
+        }
+
+        void updateNodeWithPointCount(const octomap::OcTreeKey& key, int count);
+
+        virtual bool pruneNode(SlidingWindowOcTreeNode* node);
+
+        virtual bool isNodeCollapsible(const SlidingWindowOcTreeNode* node) const;
+
+        void writeSlidingWindowDataToFile(const std::string& filename) const {
+            std::ofstream file(filename);
+            if (!file.is_open()) {
+                std::cerr << "Error: Unable to open file " << filename << " for writing.\n";
+                return;
+            }
+
+            file << "x y z sliding_window_data\n";
+
+            for (auto it = this->begin_leafs(), end = this->end_leafs(); it != end; ++it) {
+                if (this->isNodeOccupied(*it)) {
+                    const auto& node = *it;
+                    const auto& pointCounts = node.getPointCounts();
+
+                    file << "Voxel: " << it.getX() << " " << it.getY() << " " << it.getZ() << " sliding window data: [";
+                    for (size_t i = 0; i < pointCounts.size(); ++i) {
+                        file << pointCounts[i];
+                        if (i < pointCounts.size() - 1) {
+                            file << ", ";
+                        }
+                    }
+                    file << "]\n";
+                }
+            }
+
+            file.close();
+            std::cout << "Sliding window data written to " << filename << "\n";
+        }
+
+    protected:
+        class StaticMemberInitializer{
+            public:
+                StaticMemberInitializer() {
+                SlidingWindowOcTree* tree = new SlidingWindowOcTree(0.1);
+                tree->clearKeyRays();
+                octomap::AbstractOcTree::registerTreeType(tree);
+                }
+
+                /**
+                 * Dummy function to ensure that MSVC does not drop the
+                 * StaticMemberInitializer, causing this tree failing to register.
+                 * Needs to be called from the constructor of this octree.
+                 */
+                void ensureLinking() {}
+        };
+        /// static member to ensure static initialization (only once)
+        static StaticMemberInitializer slidingWindowOcTreeMemberInit;
+    };
+
+
     class OctomapServer: public rclcpp::Node {
         
     protected:
@@ -105,7 +218,7 @@ namespace octomap_server {
         std::shared_ptr<tf2_ros::Buffer> buffer_;
         std::shared_ptr<tf2_ros::TransformListener> m_tfListener;
 
-        std::shared_ptr<OcTreeT> m_octree;
+        std::shared_ptr<SlidingWindowOcTree> m_octree;
         
         octomap::KeyRay m_keyRay;  // temp storage for ray casting
         octomap::OcTreeKey m_updateBBXMin;
@@ -140,6 +253,8 @@ namespace octomap_server {
         bool m_compressMap;
         std::chrono::milliseconds heartbeat_period_ms_;
 
+        // int num_of_frames = 0;
+
         // downprojected 2D map:
         bool m_incrementalUpdate;
         nav_msgs::msg::OccupancyGrid m_gridmap;
@@ -165,7 +280,7 @@ namespace octomap_server {
         };
         
         /// Test if key is within update area of map (2D, ignores height)
-        inline bool isInUpdateBBX(const OcTreeT::iterator& it) const {
+        inline bool isInUpdateBBX(const SlidingWindowOcTree::iterator& it) const {
             // 2^(tree_depth-depth) voxels wide:
             unsigned voxelWidth = (1 << (m_maxTreeDepth - it.getDepth()));
             octomap::OcTreeKey key = it.getIndexKey(); // lower corner of voxel
@@ -210,13 +325,13 @@ namespace octomap_server {
 
         virtual void handlePreNodeTraversal(const rclcpp::Time &);
         virtual void handlePostNodeTraversal(const rclcpp::Time &);
-        virtual void handleNode(const OcTreeT::iterator& it) {};
-        virtual void handleNodeInBBX(const OcTreeT::iterator& it) {};
-        virtual void handleOccupiedNode(const OcTreeT::iterator& it);
-        virtual void handleOccupiedNodeInBBX(const OcTreeT::iterator& it);
-        virtual void handleFreeNode(const OcTreeT::iterator& it);
-        virtual void handleFreeNodeInBBX(const OcTreeT::iterator& it);
-        virtual void update2DMap(const OcTreeT::iterator&, bool);
+        virtual void handleNode(const SlidingWindowOcTree::iterator& it) {};
+        virtual void handleNodeInBBX(const SlidingWindowOcTree::iterator& it) {};
+        virtual void handleOccupiedNode(const SlidingWindowOcTree::iterator& it);
+        virtual void handleOccupiedNodeInBBX(const SlidingWindowOcTree::iterator& it);
+        virtual void handleFreeNode(const SlidingWindowOcTree::iterator& it);
+        virtual void handleFreeNodeInBBX(const SlidingWindowOcTree::iterator& it);
+        virtual void update2DMap(const SlidingWindowOcTree::iterator&, bool);
 
         virtual void onInit();        
         virtual void subscribe();
